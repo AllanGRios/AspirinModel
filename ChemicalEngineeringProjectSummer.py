@@ -15,10 +15,10 @@ def START(Mol, Temp, Time, V_threshold):
     Temp = float(Temp)
     Time = float(Time)
     V_Threshold = float(V_threshold)
-    return
+    return Mol, Temp, Time, V_threshold
 
 #Classical model based on translational energy
-def Maxwell_Boltzman_distribution(mass,temperature, v_max=6000): #kg, K, m/s, J
+def Maxwell_Boltzman_distribution(mass,temperature, v_max=1000): #kg, K, m/s, J
     #Most probable velocity
     v_p = ((2*kb*temperature)/(mass))**(0.5)
     
@@ -35,8 +35,8 @@ def Maxwell_Boltzman_distribution(mass,temperature, v_max=6000): #kg, K, m/s, J
     f_vp = 4*pi*((mass/(2*pi*kb*temperature))**3/2)*(v_p**2)*math.exp(-(mass*v_p**2)/(2*kb*temperature))
     return distribution,velocities ,v_p, f_vp
 
-def Energy_Distribution(mol=1, mass=2.21e-25, T=295): #salicylic acid kg/mol
-    V_min = 1000 # Activation energy used as kinetic to find velocity Ek = 1/2 mv^2
+def Energy_Distribution(mol=1, mass=2.29e-25, T=295): #salicylic acid kg/mol
+    V_min = 500 # Activation energy used as kinetic to find velocity Ek = 1/2 mv^2
     C = mass/(2*kb*T)
     N_total = mol*Av
     def f(v):
@@ -46,45 +46,52 @@ def Energy_Distribution(mol=1, mass=2.21e-25, T=295): #salicylic acid kg/mol
     integral, _ = quad(f, V_min, 6000)
     N = N_total * integral
     Percentage_yield = ( N/N_total ) * 100
-    print(V_min,N_total, integral,N,Percentage_yield)
     return Percentage_yield, N
 
-def Cost_Graph(mol=1, Temp=295):
-    return
-
-def salycilic_acid(mass=1,temperature=25):
+def salycilic_acid(volumetric_flow):
     density = 1.44 #kg/L
+    mass = volumetric_flow * density #kg/hr
     Molecular_weight = 0.13812 #kg/mol
-    mol = (0.13812/mass) #mol
-    cost = 80.55 * mass #€
-    return mol, Molecular_weight, cost
+    cost = 80.55 * mass #€/hr
+    molar_flow = mass/Molecular_weight #mol/hr
+    return cost, mass, molar_flow
 
-def acetic_anhydride(mass=1,temperature=25):
+def acetic_anhydride(volumetric_flow):
     density = 1.08 #kg/L
+    mass = volumetric_flow * density # kg/hr
     Molecular_weight = 0.10209 #kg/mol
-    mol = (0.10209/mass) #mol
-    cost = 138.38 * mass #€
-    return mol, Molecular_weight, cost
+    cost = 43.78 * mass #€/hr
+    molar_flow = mass/Molecular_weight #mol/hr
+    return cost, mass, molar_flow
 
-def CSTR(mol_inflow=1, mol_outflow=1, T=25, accumulation_not_outflow=True, steady_state=True, accumulation=0): #mol/s, mol/s
-    # dn/dt = Σφ_in - Σφ_out + rV
-    #dn/dt = Σφ_in - Σφ_out + k[Ca]V --> dn/dt = Σφ_in - Σφ_out + A*n*exp(-Ea/RT)
+def DMSO(volumetric_flow): # L/hr
+    density = 1.1 #kg/L
+    mass = volumetric_flow * density #kg/hr
+    Molecular_weight = 0.07813 #kg/mol
+    cost = 22.83 * mass #€/hr
+    molar_flow = mass/Molecular_weight #mol/hr
+    return cost, mass, molar_flow
+
+def CSTR(T=295, V=50): #kg/hr, K
+    # GOAL: Find molar flow of Aspirin, conversion and Time extinction coefficient
+    # Assuming solvent is saturated with reactants
+    vol_DMSO = V/1.225
+    vol_AA = 0.125 * vol_DMSO
+    vol_SA = 0.1 * vol_DMSO
     R = 8.31
-    net_flow = mol_inflow - mol_outflow
-    Ea = 75312 # j/mol Assuming same mechanism for all changes in condition
+    Ea = 40000 # j/mol Assumption based on common esterification values
     A = 1e+11 # Assumption based on similar Liquid Phase Esterificaiton Reactions
-    n, MW, Cost = salicylic_acid()
-    if accumulation_not_outflow == True and steady_state == False:
-        if accumulation != 0:
-            accumulation = net_flow + A*n*math.exp(-Ea/(R*T))
-            return accumulation #mol/s
-    elif accumulation_not_outflow == False and steady_state == True:
-        mol_outflow = mol_inflow + A*n*math.exp(-Ea/(R*T))
-        return mol_outflow
-    else:
-        print("There was an error")
+    #Step 1: Finding Concentration of inlet streams SA & AA
+    DMSO_C,DMSO_M, DMSO_F = DMSO(vol_DMSO)
+    AA_C, AA_M, AA_F = acetic_anhydride(vol_AA)
+    SA_C, SA_M, SA_F = salycilic_acid(vol_SA)
+    C_SA0 = SA_F/vol_DMSO
+    C_AA0 = AA_F/vol_DMSO
+    #Step 2: Find Rate of consumption
+    K_r = A*(math.exp(-Ea/(R*T)))
+    r_consumption_SA = K_r * C_SA0 * C_AA0
 
-def Batch_reactor(mol_inflow=1, accumulation=0, mol_outflow=1, generation=0):
+
     return
 
 def open_new_window():
@@ -124,13 +131,26 @@ def Window():
         distribution, velocities, v_p, f_vp = Maxwell_Boltzman_distribution(m, temp)
         axs[0][0].clear()
         axs[0][0].plot(velocities, distribution)
-        axs[0][0].set_title(f"T = {temp:.0f} K \n Most Probable Velocity = {v_p:.1f} ms⁻¹ \n N% Above Φ = {N:.10f} %")
+        axs[0][0].set_title(f"T = {temp:.0f} K \n Most Probable Velocity = {v_p:.1f} ms⁻¹ \n N% Above Φ = {PY:.1f} %")
         canvas.draw()
 
-    slider = tk.Scale(root, from_=200, to=500, orient=tk.HORIZONTAL, label="Temperature (K)", command=update_temp)
-    slider.set(273)
-    slider.pack(pady=20)
+    def update_cost(mass_inflow):
+        temp = slider_1.get()
+
+        return
+
+
+    slider_1 = tk.Scale(root, from_=200, to=500, orient=tk.HORIZONTAL, label="Temperature (K)", command=update_temp) #Reactor Temperature Slider
+    slider_1.set(273)
+    slider_1.pack(pady=20)
+
+    slider_2 = tk.Scale(root, from_=0, to= 100, orient=tk.HORIZONTAL, label="Mass Inflow Salicylic Acid (kg/hr)", command=update_cost) #Mass Inflow Slider
+    slider_2.set(5)
+    slider_2.pack(pady=50)
 
     btn = tk.Button(root, text="Open New Window", command=open_new_window)
     btn.pack(pady=20)
     root.mainloop()
+
+x=100
+CSTR(V=x)
