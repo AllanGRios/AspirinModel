@@ -10,13 +10,6 @@ pi = 3.14159265
 kb = 1.380649e-23
 Av = 6.02214e+23
 
-def START(Mol, Temp, Time, V_threshold):
-    Mol = float(Mol)
-    Temp = float(Temp)
-    Time = float(Time)
-    V_Threshold = float(V_threshold)
-    return Mol, Temp, Time, V_threshold
-
 #Classical model based on translational energy
 def Maxwell_Boltzman_distribution(mass,temperature, v_max=1000): #kg, K, m/s, J
     #Most probable velocity
@@ -74,13 +67,15 @@ def DMSO(volumetric_flow): # L/hr
 
 def CSTR(T=295, V=50): #kg/hr, K
     # GOAL: Find molar flow of Aspirin, conversion and Time extinction coefficient
-    # Assuming solvent is saturated with reactants
+    # Assuming solvent is always saturated with reactants
+    V = float(V)
+    T = float(T)
     vol_DMSO = V/1.225
     vol_AA = 0.125 * vol_DMSO
     vol_SA = 0.1 * vol_DMSO
     R = 8.31
     Ea = 40000 # j/mol Assumption based on common esterification values
-    A = 1e+11 # Assumption based on similar Liquid Phase Esterificaiton Reactions
+    A = 1e-6 # Assumption based on similar Liquid Phase Esterificaiton Reactions
     #Step 1: Finding Concentration of inlet streams SA & AA
     DMSO_C,DMSO_M, DMSO_F = DMSO(vol_DMSO)
     AA_C, AA_M, AA_F = acetic_anhydride(vol_AA)
@@ -90,9 +85,18 @@ def CSTR(T=295, V=50): #kg/hr, K
     #Step 2: Find Rate of consumption
     K_r = A*(math.exp(-Ea/(R*T)))
     r_consumption_SA = K_r * C_SA0 * C_AA0
+    #Step 3: Find Conversion, Residence time, Final concentration SA
+    X_SA = ((-r_consumption_SA)*(V)/(vol_SA))
+    C_SA = C_SA0 * (1 - X_SA)
+    Rt = ((C_SA0) - (C_SA))/(-r_consumption_SA) #Residence time for Salicylic acid (limiting reactant)
+    #Distribution of Results
+    Volumes = np.linspace(1, V)
+    Outlet = []
+    for i in Volumes:
+        AS_F = SA_F * (-X_SA)
+        Outlet.append(AS_F)
 
-
-    return
+    return Outlet, Volumes
 
 def open_new_window():
     new_win = tk.Toplevel(root)
@@ -134,23 +138,24 @@ def Window():
         axs[0][0].set_title(f"T = {temp:.0f} K \n Most Probable Velocity = {v_p:.1f} ms⁻¹ \n N% Above Φ = {PY:.1f} %")
         canvas.draw()
 
-    def update_cost(mass_inflow):
+    def update_volume(reactor_volume):
         temp = slider_1.get()
-
-        return
-
+        Outlet, Volume = CSTR(T=temp, V=reactor_volume)
+        axs[1][0].clear()
+        axs[0][1].plot(Volume, Outlet)
+        axs[0][1].set_title(f"Production of aspirin in mol/hr")
+        canvas.draw()
 
     slider_1 = tk.Scale(root, from_=200, to=500, orient=tk.HORIZONTAL, label="Temperature (K)", command=update_temp) #Reactor Temperature Slider
     slider_1.set(273)
-    slider_1.pack(pady=20)
+    slider_1.pack(pady=10)
 
-    slider_2 = tk.Scale(root, from_=0, to= 100, orient=tk.HORIZONTAL, label="Mass Inflow Salicylic Acid (kg/hr)", command=update_cost) #Mass Inflow Slider
-    slider_2.set(5)
-    slider_2.pack(pady=50)
+    slider_2 = tk.Scale(root, from_=1, to= 1000, orient=tk.HORIZONTAL, label="CSTR Volume (L)", command=update_volume) #Mass Inflow Slider
+    slider_2.set(50)
+    slider_2.pack(pady=10)
 
     btn = tk.Button(root, text="Open New Window", command=open_new_window)
     btn.pack(pady=20)
     root.mainloop()
 
-x=100
-CSTR(V=x)
+Window()
