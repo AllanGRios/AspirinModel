@@ -65,38 +65,42 @@ def DMSO(volumetric_flow): # L/hr
     molar_flow = mass/Molecular_weight #mol/hr
     return cost, mass, molar_flow
 
-def CSTR(T=295, V=50): #kg/hr, K
-    # GOAL: Find molar flow of Aspirin, conversion and Time extinction coefficient
-    # Assuming solvent is always saturated with reactants
-    V = float(V)
-    T = float(T)
-    vol_DMSO = V/1.225
-    vol_AA = 0.125 * vol_DMSO
-    vol_SA = 0.1 * vol_DMSO
-    R = 8.31
-    Ea = 40000 # j/mol Assumption based on common esterification values
-    A = 1e-6 # Assumption based on similar Liquid Phase Esterificaiton Reactions
-    #Step 1: Finding Concentration of inlet streams SA & AA
-    DMSO_C,DMSO_M, DMSO_F = DMSO(vol_DMSO)
-    AA_C, AA_M, AA_F = acetic_anhydride(vol_AA)
-    SA_C, SA_M, SA_F = salycilic_acid(vol_SA)
-    C_SA0 = SA_F/vol_DMSO
-    C_AA0 = AA_F/vol_DMSO
-    #Step 2: Find Rate of consumption
-    K_r = A*(math.exp(-Ea/(R*T)))
-    r_consumption_SA = K_r * C_SA0 * C_AA0
-    #Step 3: Find Conversion, Residence time, Final concentration SA
-    X_SA = ((-r_consumption_SA)*(V)/(vol_SA))
-    C_SA = C_SA0 * (1 - X_SA)
-    Rt = ((C_SA0) - (C_SA))/(-r_consumption_SA) #Residence time for Salicylic acid (limiting reactant)
-    #Distribution of Results
-    Volumes = np.linspace(1, V)
-    Outlet = []
-    for i in Volumes:
-        AS_F = SA_F * (-X_SA)
-        Outlet.append(AS_F)
+def CSTR(v_SA,  V_CSTR, T=295): #kg/hr, K
+    # GOAL: Find molar flow of Aspirin at the outlet, find the conversion, plot a graph of Aspirin Production vs Time at that specific temperature and that specific volume
+    # Assuming: solvent is always saturated with reactants and V_CSTR Remains Constant
+    # in terms of limiting reagent, salicylic acid
+    V_CSTR, T, v_SA = (float(V_CSTR),float(T), float(v_SA))
+    A, R, Ea = [1e-2, 8.31, 40000]
+    # Relationship between volumetric flows such that solvent is always saturated and Volume always constant
+    """v_DMSO = (((0.775 * V_CSTR) - (V_CSTR))/(0.1 * V_CSTR)) * v_SA + V_CSTR
+    v_AA = (((0.125 * V_CSTR) - (V_CSTR))/(0.1 * V_CSTR)) * v_SA"""
+    v_DMSO = -2.25 * v_SA + 1000
+    v_AA = 1.25 * v_SA
+    print(f"v_AA {v_AA}, v_DMSO {v_DMSO}")
+    print(f"total volume {v_SA + v_AA + v_DMSO} / {V_CSTR} L")
+    # Inlet Concentrations
+    C_AA0 = ((1.08 * v_AA)/(v_DMSO * 0.10209))
+    C_SA0 = ((1.44 * v_SA)/(v_DMSO* 0.13812))
+    print(f"concentrations{C_SA0, C_AA0}")
+    # Consumption
+    r_SA = (A * math.exp((-Ea)/(R * T))) * C_AA0 * C_SA0
+    print(f"rate of consumption {r_SA} [units]")
+    # Conversion & Aspirin Flow
+    X_SA = ((-r_SA) * V_CSTR * 0.13812)/(1.44 * v_SA)
+    n_AS = (r_SA * V_CSTR)
+    print(f"aspirin {n_AS} and conv {X_SA}")
 
-    return Outlet, Volumes
+    def net_cash_flow():
+        # Q = mc∆T   Kj/hr = Kwh
+        mass = (1.1 * v_DMSO) + (1.08 * v_AA) + (1.44 * v_SA)
+        Power = mass * 412 * T
+        # Operational Costs
+        Total_Costs = -((43.78 * 1.08 * v_AA) + (80.55 * 1.44 * v_SA) + (22.83 * 1.1 * v_DMSO) + (0.32 * Power))
+        Total_Profit = (90.90 * n_AS) + Total_Costs
+        print(Total_Profit)
+        return Total_Profit
+
+    return n_AS, X_SA, net_cash_flow() # NEED DISTRIBUTION TO FORM GRAPH
 
 def open_new_window():
     new_win = tk.Toplevel(root)
@@ -140,9 +144,10 @@ def Window():
 
     def update_volume(reactor_volume):
         temp = slider_1.get()
-        Outlet, Volume = CSTR(T=temp, V=reactor_volume)
+        AS, Volume, profit = CSTR(reactor_volume, 1000, temp)
+        Time = np.linspace(0,1000)
         axs[1][0].clear()
-        axs[0][1].plot(Volume, Outlet)
+        axs[0][1].plot(Time, Outlet)
         axs[0][1].set_title(f"Production of aspirin in mol/hr")
         canvas.draw()
 
@@ -150,7 +155,7 @@ def Window():
     slider_1.set(273)
     slider_1.pack(pady=10)
 
-    slider_2 = tk.Scale(root, from_=1, to= 1000, orient=tk.HORIZONTAL, label="CSTR Volume (L)", command=update_volume) #Mass Inflow Slider
+    slider_2 = tk.Scale(root, from_=1, to= 100, orient=tk.HORIZONTAL, label="Inlet Stream SA (L/hr)", command=update_volume) #Mass Inflow Slider
     slider_2.set(50)
     slider_2.pack(pady=10)
 
@@ -159,3 +164,34 @@ def Window():
     root.mainloop()
 
 Window()
+"""
+ABOUT.me
+# AspirinModel
+
+***
+
+## Project Description
+> AspirinModel is a python software developed by an undergraduate Chemical Engineering student in order to simulate different aspects of a Continuous Stirr Tank Reactor (CSTR), patching together my understanding of different fundamental concepts. The project aims at creating a model that approximates the real world physics of running a CSTR reactor. The project will be looking at the industrial process at synthesizing Aspirin starting from Acetic Anhydride and Salicylic Acid under an acid catalyst.
+
+## Purpose
+> The purpose of the project is the development of a comprehensive software model of a CSTR that can predict the production of Aspirin and adapt to changes in reaction conditions, giving results in the form of graphs, helping out reactor designers in choosing optimal conditions for the industrial level reaction.
+
+## Scope
+> The model must be able to visualize data of physical quantities on graphs including Maxwell-Boltzman Distribution, Operating Cost, Molar Flow of Aspirin at the outlet and the Time extinction coefficient
+> The model should be able to take raw HNMR or FTIR data and convert it into a standard spectrum able to be interpreted by analysts.
+> The model could include additional visualization in the form of an animation via the Pygame module.
+> The model won't consider non-steady state, non-idealized reactors or recycle streams, additionally the model is only focused on material flows through the CSTR stage of the industrial production so won't consider any flows outside the CSTR stage.
+
+## Limitations
+> A few limitations can be pointed out such as:
+> > - Lack of real world kinetic data therefore inaccurate constants must be assumed, or alternatively constants from similar esterification reactions should be taken.
+> > - Considering only idealized conditions makes the model inaccurate to the majority of real world scenarios.
+> > - Heat transfers and Mass transfers are not considered.
+> > - Maxwell-Boltzman distribution is only considered in one plane of motion.
+
+### About the Creator
+> This project was a self assigned endevour aimed at developing understanding and skills in python, Data Visualization, Physical Chemistry, Organic Chemistry, Engineering Concepts, Project Management, Research Skills, Problem Solving aswell as Documentation and Reporting.
+> The creator of the project is an undergraduate student (A. G. Rios Frattaroli) at the University of Groningen in The Netherlands studying Bsc Chemical Engineering.
+> LinkedIn :
+
+"""
