@@ -48,11 +48,11 @@ def salycilic_acid(V_SA, T):
     cost = 4.73 * mass #€/hr
     molar_flow = mass/Molecular_weight #mol/hr
     if T >= 484:
-        A = 1e+11
+        A = 3.6e+14
         Ea = 15.03
         r = -A * math.exp((-Ea)/(8.31 * T)) * (molar_flow / 1000)
         molar_flow = molar_flow + r
-    return cost, mass, molar_flow
+    return molar_flow, cost
 
 def acetic_anhydride(V_SA, T):
     density = 1.08 #kg/L
@@ -61,12 +61,13 @@ def acetic_anhydride(V_SA, T):
     Molecular_weight = 0.10209 #kg/mol
     cost = 0.76 * mass #€/hr
     molar_flow = mass/Molecular_weight #mol/hr
+    print(molar_flow/1000)
     if T >= 412:
-        A = 1e+12
+        A = 3.6e+15
         Ea = 345
         r = -A * math.exp((-Ea)/(8.31 * T)) * (molar_flow / 1000)
         molar_flow = molar_flow + r
-    return cost, mass, molar_flow
+    return molar_flow, cost
 
 def DMSO(V_SA, T): # L/hr
     density = 1.1 #kg/L
@@ -78,10 +79,23 @@ def DMSO(V_SA, T): # L/hr
     if T >= 462:
         n = 1.5
         Ea = 79
-        A = 1e+6
+        A = 3.6e+9 # 1/hr
         r = -A * math.exp((-Ea)/(8.31 * T)) * (molar_flow/1000)
         molar_flow = molar_flow + r
-    return cost, mass, molar_flow
+    return molar_flow, cost
+
+def aspirin(Molar_flow, T):
+    density = 1.4 #kg/L
+    molecular_weight = 0.180158 #kg/mol
+    mass = Molar_flow * molecular_weight
+    revenue = 90.90 * mass
+    if T >= 413:
+        n = 2.8
+        A = 4.74e+11
+        Ea = 100.34
+        r = -A * math.exp((-Ea)/(8.31 * T)) * ((Molar_flow/1000)**n)
+        Molar_flow = Molar_flow + r
+    return Molar_flow, revenue
 
 def CSTR(v_SA,  V_CSTR, T=295): #kg/hr, K
     # GOAL: Find molar flow of Aspirin at the outlet, find the conversion, plot a graph of Aspirin Production vs Time at that specific temperature and that specific volume
@@ -90,34 +104,22 @@ def CSTR(v_SA,  V_CSTR, T=295): #kg/hr, K
     V_CSTR, T, v_SA = (float(V_CSTR),float(T), float(v_SA))
     A, R, Ea = [1e+8, 8.31, 40000]
     # Relationship between volumetric flows such that solvent is always saturated and Volume always constant
-    v_DMSO = -2.25 * v_SA + 1000
-    v_AA = 1.25 * v_SA
+    n_AA, cost_AA = acetic_anhydride(v_SA, T)
+    n_SA, cost_SA = salycilic_acid(v_SA,T)
+    n_DMSO, cost_DMSO = DMSO(v_SA, T)
     # Reactor Concentrations
-    C_AA = ((1.08 * v_AA)/(0.10209 * (v_DMSO + v_AA + v_SA)))
-    C_SA = ((1.44 * v_SA)/(0.13812 * (v_DMSO + v_AA + v_SA)))
+    C_AA = n_AA / 1000 #mol/L
+    C_SA = n_SA / 1000 #mol/L
     # Consumption
     r_SA = (A * math.exp((-Ea)/(R * T))) * C_AA * C_SA
     # Conversion & Aspirin Flow
-    X_SA = 100 * ((-r_SA) * V_CSTR * 0.13812)/(1.44 * v_SA)
+    X_SA = (-r_SA * V_CSTR)/(n_SA)
     n_AS = (r_SA * V_CSTR)
+    print(n_AS)
+    n_AS, revenue =  aspirin(n_AS, T)
+    print(n_AS)
 
-    def decomposition():
-        # Decomposition Rate Constants Ea = kJ/mol, A = 1/s
-        AS_Dconst = {"n" : 2.8, "Ea" : 100.34, "A" : 4.74e+11}
-        DMSO_Dconst = {"n" : 1.5, "Ea" : 79, "A" : 1e+6}
-        SA_Dconst = {"n" : 1, "Ea" : 15.03, "A" : 1e+11}
-        D_Temperatures = {412 : AA_Dconst, 413 : AS_Dconst, 462 : DMSO_Dconst, 484 : SA_Dconst}
-
-    def net_cash_flow():
-        # Q = mc∆T   Kj/hr = Kwh
-        mass = (1.1 * v_DMSO) + (1.08 * v_AA) + (1.44 * v_SA)
-        Power = mass * 412 * T
-        # Operational Costs
-        Total_Costs = -((0.76 * 1.08 * v_AA) + (4.73 * 1.44 * v_SA) + (4.67 * 1.1 * v_DMSO) )
-        Total_Profit = (90.90 * n_AS) + Total_Costs
-        return Total_Profit
-
-    return n_AS, net_cash_flow(), v_AA, v_DMSO # NEED DISTRIBUTION TO FORM GRAPH
+    return n_AS, n_AA, n_DMSO # NEED DISTRIBUTION TO FORM GRAPH
 
 def open_new_window():
     new_win = tk.Toplevel(root)
@@ -163,21 +165,21 @@ def Window():
 
     def update_volume(reactor_volume):
         temp = slider_1.get()
-        AS, profit, v_AA, v_DMSO = CSTR(reactor_volume, 1000, temp)
+        AS, n_AA, n_DMSO = CSTR(reactor_volume, 1000, temp)
         Time = np.linspace(0,1000)
         Outlet = []
         for i in Time:
             Outlet.append(AS * i)
         # Aspirin mol vs Time
         axs[0][1].clear()
-        axs[0][1].set_ylim(0,10000000)
+        axs[0][1].set_ylim(0,1e+9)
         axs[0][1].plot(Time, Outlet)
         axs[0][1].set_title(f"Production of aspirin in mol/hr")
         axs[0][1].set_ylabel(f"mol")
         canvas.draw()
 
     slider_1 = tk.Scale(root, from_=200, to=500, orient=tk.HORIZONTAL, label="Temperature (K)", command=update_temp) #Reactor Temperature Slider
-    slider_1.set(273)
+    slider_1.set(411)
     slider_1.pack(pady=5)
 
 
