@@ -41,28 +41,46 @@ def Energy_Distribution(mol=1, mass=2.29e-25, T=295): #salicylic acid kg/mol
     Percentage_yield = ( N/N_total ) * 100
     return Percentage_yield, N
 
-def salycilic_acid(volumetric_flow):
+def salycilic_acid(V_SA, T):
     density = 1.44 #kg/L
-    mass = volumetric_flow * density #kg/hr
+    mass = V_SA * density #kg/hr
     Molecular_weight = 0.13812 #kg/mol
     cost = 4.73 * mass #€/hr
     molar_flow = mass/Molecular_weight #mol/hr
+    if T >= 484:
+        A = 1e+11
+        Ea = 15.03
+        r = -A * math.exp((-Ea)/(8.31 * T)) * (molar_flow / 1000)
+        molar_flow = molar_flow + r
     return cost, mass, molar_flow
 
-def acetic_anhydride(volumetric_flow):
+def acetic_anhydride(V_SA, T):
     density = 1.08 #kg/L
+    volumetric_flow = 1.25 * V_SA
     mass = volumetric_flow * density # kg/hr
     Molecular_weight = 0.10209 #kg/mol
     cost = 0.76 * mass #€/hr
     molar_flow = mass/Molecular_weight #mol/hr
+    if T >= 412:
+        A = 1e+12
+        Ea = 345
+        r = -A * math.exp((-Ea)/(8.31 * T)) * (molar_flow / 1000)
+        molar_flow = molar_flow + r
     return cost, mass, molar_flow
 
-def DMSO(volumetric_flow): # L/hr
+def DMSO(V_SA, T): # L/hr
     density = 1.1 #kg/L
+    volumetric_flow = (-2.25 * V_SA) + 1000
     mass = volumetric_flow * density #kg/hr
     Molecular_weight = 0.07813 #kg/mol
     cost = 4.67 * mass #€/hr
     molar_flow = mass/Molecular_weight #mol/hr
+    if T >= 462:
+        n = 1.5
+        Ea = 79
+        A = 1e+6
+        r = -A * math.exp((-Ea)/(8.31 * T)) * (molar_flow/1000)
+        molar_flow = molar_flow + r
     return cost, mass, molar_flow
 
 def CSTR(v_SA,  V_CSTR, T=295): #kg/hr, K
@@ -82,6 +100,13 @@ def CSTR(v_SA,  V_CSTR, T=295): #kg/hr, K
     # Conversion & Aspirin Flow
     X_SA = 100 * ((-r_SA) * V_CSTR * 0.13812)/(1.44 * v_SA)
     n_AS = (r_SA * V_CSTR)
+
+    def decomposition():
+        # Decomposition Rate Constants Ea = kJ/mol, A = 1/s
+        AS_Dconst = {"n" : 2.8, "Ea" : 100.34, "A" : 4.74e+11}
+        DMSO_Dconst = {"n" : 1.5, "Ea" : 79, "A" : 1e+6}
+        SA_Dconst = {"n" : 1, "Ea" : 15.03, "A" : 1e+11}
+        D_Temperatures = {412 : AA_Dconst, 413 : AS_Dconst, 462 : DMSO_Dconst, 484 : SA_Dconst}
 
     def net_cash_flow():
         # Q = mc∆T   Kj/hr = Kwh
