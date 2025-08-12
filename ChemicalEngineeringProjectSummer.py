@@ -47,11 +47,6 @@ def salycilic_acid(V_SA, T):
     Molecular_weight = 0.13812 #kg/mol
     cost = 4.73 * mass #€/hr
     molar_flow = mass/Molecular_weight #mol/hr
-    if T >= 484:
-        A = 3.6e+14
-        Ea = 15.03
-        r = -A * math.exp((-Ea)/(8.31 * T)) * (molar_flow / 1000)
-        molar_flow = molar_flow + r
     return molar_flow, cost
 
 def acetic_anhydride(V_SA, T):
@@ -61,12 +56,13 @@ def acetic_anhydride(V_SA, T):
     Molecular_weight = 0.10209 #kg/mol
     cost = 0.76 * mass #€/hr
     molar_flow = mass/Molecular_weight #mol/hr
-    print(molar_flow/1000)
     if T >= 412:
         A = 3.6e+15
         Ea = 345
         r = -A * math.exp((-Ea)/(8.31 * T)) * (molar_flow / 1000)
         molar_flow = molar_flow + r
+        if molar_flow < 0:
+            molar_flow = 0
     return molar_flow, cost
 
 def DMSO(V_SA, T): # L/hr
@@ -76,12 +72,6 @@ def DMSO(V_SA, T): # L/hr
     Molecular_weight = 0.07813 #kg/mol
     cost = 4.67 * mass #€/hr
     molar_flow = mass/Molecular_weight #mol/hr
-    if T >= 462:
-        n = 1.5
-        Ea = 79
-        A = 3.6e+9 # 1/hr
-        r = -A * math.exp((-Ea)/(8.31 * T)) * (molar_flow/1000)
-        molar_flow = molar_flow + r
     return molar_flow, cost
 
 def aspirin(Molar_flow, T):
@@ -89,12 +79,6 @@ def aspirin(Molar_flow, T):
     molecular_weight = 0.180158 #kg/mol
     mass = Molar_flow * molecular_weight
     revenue = 90.90 * mass
-    if T >= 413:
-        n = 2.8
-        A = 4.74e+11
-        Ea = 100.34
-        r = -A * math.exp((-Ea)/(8.31 * T)) * ((Molar_flow/1000)**n)
-        Molar_flow = Molar_flow + r
     return Molar_flow, revenue
 
 def CSTR(v_SA,  V_CSTR, T=295): #kg/hr, K
@@ -115,10 +99,7 @@ def CSTR(v_SA,  V_CSTR, T=295): #kg/hr, K
     # Conversion & Aspirin Flow
     X_SA = (-r_SA * V_CSTR)/(n_SA)
     n_AS = (r_SA * V_CSTR)
-    print(n_AS)
     n_AS, revenue =  aspirin(n_AS, T)
-    print(n_AS)
-
     return n_AS, n_AA, n_DMSO # NEED DISTRIBUTION TO FORM GRAPH
 
 def open_new_window():
