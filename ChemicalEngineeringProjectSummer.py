@@ -100,12 +100,16 @@ def CSTR(v_SA,  V_CSTR, T=295): #kg/hr, K
     X_SA = (-r_SA * V_CSTR)/(n_SA)
     n_AS = (r_SA * V_CSTR)
     n_AS, revenue, mass_AS =  aspirin(n_AS, T)
+    print(n_DMSO, n_AA, n_SA, n_AS)
     # Net Cash
-    Net = []
-    for i in np.linspace(0,1000):
-        power = (T * (mass_AS + mass_AA + mass_SA + mass_DMSO) * 0.7025)# Q=mcT Kj/hr  mass = kg/hr
-        Net.append(revenue - cost_AA - cost_SA - cost_DMSO - (0.32 * power))
-    return n_AS, n_AA, n_DMSO, Net
+    def cash_flow():
+        Net = []
+        for i in np.linspace(0,1000):
+            Energy = (T * (mass_AS + mass_AA + mass_SA + mass_DMSO) * 0.7025)# Q=mcT Kj
+            Power = Energy/i
+            Net.append((revenue - cost_AA - cost_SA - cost_DMSO - (0.32 * power)) * i)
+        return Net
+    return n_AS, n_AA, n_DMSO
 
 def open_new_window():
     new_win = tk.Toplevel(root)
@@ -151,7 +155,7 @@ def Window():
 
     def update_volume(reactor_volume):
         temp = slider_1.get()
-        AS, n_AA, n_DMSO, Net = CSTR(reactor_volume, 1000, temp)
+        AS, n_AA, n_DMSO = CSTR(reactor_volume, 1000, temp)
         Time = np.linspace(0,1000)
         Outlet = []
         for i in Time:
@@ -165,8 +169,12 @@ def Window():
         canvas.draw()
 
         axs[1][0].clear()
-        axs[1][0].plot(Time, Net)
+        #axs[1][0].plot(Time, Net)
         axs[1][0].set_title("Net Profit vs Time")
+
+        axs[1][1].clear()
+    #    axs[1][1].plot(np.linspace(200,500))
+        axs[1][1].set_title("Net Profit vs Temperature")
 
     slider_1 = tk.Scale(root, from_=200, to=500, orient=tk.HORIZONTAL, label="Temperature (K)", command=update_temp) #Reactor Temperature Slider
     slider_1.set(411)
