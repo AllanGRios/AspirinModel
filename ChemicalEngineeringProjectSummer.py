@@ -82,11 +82,10 @@ def aspirin(Molar_flow, T):
     return Molar_flow, revenue, mass
 
 def CSTR(v_SA,  V_CSTR, T=295): #kg/hr, K
-    # GOAL: Find molar flow of Aspirin at the outlet, find the conversion, plot a graph of Aspirin Production vs Time at that specific temperature and that specific volume
     # Assuming: solvent is always saturated with reactants and V_CSTR Remains Constant
     # in terms of limiting reagent, salicylic acid
     V_CSTR, T, v_SA = (float(V_CSTR),float(T), float(v_SA))
-    A, R, Ea = [1e+8, 8.31, 40000]
+    A, R, Ea = [92245, 8.31, 40000]
     # Relationship between volumetric flows such that solvent is always saturated and Volume always constant
     n_AA, cost_AA, mass_AA = acetic_anhydride(v_SA, T)
     n_SA, cost_SA, mass_SA = salycilic_acid(v_SA,T)
@@ -94,11 +93,9 @@ def CSTR(v_SA,  V_CSTR, T=295): #kg/hr, K
     # Reactor Concentrations
     C_AA = n_AA / 1000 #mol/L
     C_SA = n_SA / 1000 #mol/L
-    # Consumption
-    r_SA = (A * math.exp((-Ea)/(R * T))) * C_AA * C_SA
-    # Conversion & Aspirin Flow
-    X_SA = (-r_SA * V_CSTR)/(n_SA)
-    n_AS = (r_SA * V_CSTR)
+    # Production of Aspirin
+    r_AS = (A * math.exp((-Ea)/(R * T))) * C_AA * C_SA
+    n_AS = r_AS * V_CSTR
     n_AS, revenue, mass_AS =  aspirin(n_AS, T)
     print(n_DMSO, n_AA, n_SA, n_AS)
     # Net Cash
@@ -162,7 +159,7 @@ def Window():
             Outlet.append(AS * i)
         # Aspirin mol vs Time
         axs[0][1].clear()
-        axs[0][1].set_ylim(0,1e+9)
+        axs[0][1].set_ylim(0,100)
         axs[0][1].plot(Time, Outlet)
         axs[0][1].set_title(f"Production of aspirin in mol/hr")
         axs[0][1].set_ylabel(f"mol")
