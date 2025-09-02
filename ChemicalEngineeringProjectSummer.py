@@ -56,13 +56,9 @@ def acetic_anhydride(V_SA, T):
     Molecular_weight = 0.10209 #kg/mol
     cost = 0.76 * mass #€/hr
     molar_flow = mass/Molecular_weight #mol/hr
-    if T >= 412:
-        A = 3.6e+15
-        Ea = 345
-        r = -A * math.exp((-Ea)/(8.31 * T)) * (molar_flow / 1000)
-        molar_flow = molar_flow + r
-        if molar_flow < 0:
-            molar_flow = 0
+
+    if T >= 400:
+        molar_flow = molar_flow / (1 + (math.exp(T - 412)))
     return molar_flow, cost, mass
 
 def DMSO(V_SA, T): # L/hr
@@ -97,16 +93,16 @@ def CSTR(v_SA,  V_CSTR, T=295): #kg/hr, K
     r_AS = (A * math.exp((-Ea)/(R * T))) * C_AA * C_SA
     n_AS = r_AS * V_CSTR
     n_AS, revenue, mass_AS =  aspirin(n_AS, T)
-    print(n_DMSO, n_AA, n_SA, n_AS)
-    # Net Cash
+    # Net Cash cp = 0.7025
     def cash_flow():
-        Net = []
-        for i in np.linspace(0,1000):
-            Energy = (T * (mass_AS + mass_AA + mass_SA + mass_DMSO) * 0.7025)# Q=mcT Kj
-            Power = Energy/i
-            Net.append((revenue - cost_AA - cost_SA - cost_DMSO - (0.32 * power)) * i)
-        return Net
-    return n_AS, n_AA, n_DMSO
+        profit_temp = {}
+        for i in range(295,500):
+            power = (mass_AA + mass_DMSO + mass_SA + mass_AS) * i * 0.7025
+            profit = revenue - cost_DMSO - cost_SA - cost_AA - (0.0032 * power)
+            profit_temp[i] = profit
+        return profit_temp
+    Cash = cash_flow()
+    return n_AS, n_AA, n_DMSO, Cash
 
 def open_new_window():
     new_win = tk.Toplevel(root)
@@ -152,29 +148,26 @@ def Window():
 
     def update_volume(reactor_volume):
         temp = slider_1.get()
-        AS, n_AA, n_DMSO = CSTR(reactor_volume, 1000, temp)
+        AS, n_AA, n_DMSO, Cash = CSTR(reactor_volume, 1000, temp)
         Time = np.linspace(0,1000)
         Outlet = []
         for i in Time:
             Outlet.append(AS * i)
         # Aspirin mol vs Time
         axs[0][1].clear()
-        axs[0][1].set_ylim(0,100)
+        axs[0][1].set_ylim(0,1e+6)
         axs[0][1].plot(Time, Outlet)
-        axs[0][1].set_title(f"Production of aspirin in mol/hr")
+        axs[0][1].set_title(f"Aspirin (mol/hr) \n {round(AS, 1)} mol/hr")
         axs[0][1].set_ylabel(f"mol")
-        canvas.draw()
-
-        axs[1][0].clear()
-        #axs[1][0].plot(Time, Net)
-        axs[1][0].set_title("Net Profit vs Time")
 
         axs[1][1].clear()
-    #    axs[1][1].plot(np.linspace(200,500))
-        axs[1][1].set_title("Net Profit vs Temperature")
-
-    slider_1 = tk.Scale(root, from_=200, to=500, orient=tk.HORIZONTAL, label="Temperature (K)", command=update_temp) #Reactor Temperature Slider
-    slider_1.set(411)
+        axs[1][1].plot(Cash.keys(), Cash.values())
+        axs[1][1].axvline(temp)
+        axs[1][1].set_ylim(-1e+4,1e+4)
+        axs[1][1].set_title(f"Profit (EUR/hr)")
+        canvas.draw()
+    slider_1 = tk.Scale(root, from_=295, to=500, orient=tk.HORIZONTAL, label="Temperature (K)", command=update_temp) #Reactor Temperature Slider
+    slider_1.set(295)
     slider_1.pack(pady=5)
 
 
