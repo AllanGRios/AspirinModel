@@ -41,7 +41,7 @@ def Energy_Distribution(mol=1, mass=2.29e-25, T=295): #salicylic acid kg/mol
     Percentage_yield = ( N/N_total ) * 100
     return Percentage_yield, N
 
-def salycilic_acid(V_SA, T):
+def salycilic_acid(V_SA):
     density = 1.44 #kg/L
     mass = V_SA * density #kg/hr
     Molecular_weight = 0.13812 #kg/mol
@@ -61,7 +61,7 @@ def acetic_anhydride(V_SA, T):
         molar_flow = molar_flow / (1 + (math.exp(T - 412)))
     return molar_flow, cost, mass
 
-def DMSO(V_SA, T): # L/hr
+def DMSO(V_SA): # L/hr
     density = 1.1 #kg/L
     volumetric_flow = (-2.25 * V_SA) + 1000
     mass = volumetric_flow * density #kg/hr
@@ -70,39 +70,79 @@ def DMSO(V_SA, T): # L/hr
     molar_flow = mass/Molecular_weight #mol/hr
     return molar_flow, cost, mass
 
-def aspirin(Molar_flow, T):
+def aspirin(Molar_flow):
     density = 1.4 #kg/L
     molecular_weight = 0.180158 #kg/mol
     mass = Molar_flow * molecular_weight
     revenue = 90.90 * mass
-    return Molar_flow, revenue, mass
+    return revenue, mass
 
-def CSTR(v_SA,  V_CSTR, T=295): #kg/hr, K
-    # Assuming: solvent is always saturated with reactants and V_CSTR Remains Constant
-    # in terms of limiting reagent, salicylic acid
-    V_CSTR, T, v_SA = (float(V_CSTR),float(T), float(v_SA))
+"""def CSTR(v_SA,  V_CSTR, T=295): 
     A, R, Ea = [92245, 8.31, 40000]
     # Relationship between volumetric flows such that solvent is always saturated and Volume always constant
     n_AA, cost_AA, mass_AA = acetic_anhydride(v_SA, T)
-    n_SA, cost_SA, mass_SA = salycilic_acid(v_SA,T)
-    n_DMSO, cost_DMSO, mass_DMSO = DMSO(v_SA, T)
+    n_SA, cost_SA, mass_SA = salycilic_acid(v_SA)
+    n_DMSO, cost_DMSO, mass_DMSO = DMSO(v_SA)
     # Reactor Concentrations
     C_AA = n_AA / 1000 #mol/L
     C_SA = n_SA / 1000 #mol/L
     # Production of Aspirin
     r_AS = (A * math.exp((-Ea)/(R * T))) * C_AA * C_SA
     n_AS = r_AS * V_CSTR
-    n_AS, revenue, mass_AS =  aspirin(n_AS, T)
-    # Net Cash cp = 0.7025
-    def cash_flow():
-        profit_temp = {}
-        for i in range(295,500):
-            power = (mass_AA + mass_DMSO + mass_SA + mass_AS) * i * 0.7025
-            profit = revenue - cost_DMSO - cost_SA - cost_AA - (0.0032 * power)
-            profit_temp[i] = profit
-        return profit_temp
-    Cash = cash_flow()
+    revenue, mass_AS =  aspirin(n_AS)
+    # Net Cash
+    def cash_flow(Temp):
+        mass_flow = mass_AA + mass_DMSO + mass_SA + mass_AS
+        cp = 0.7025 # specific heat capacity of the mixture
+        pc = mass_flow * cp * Temp * 0.032 # power cost
+        materials = revenue - cost_AA - cost_DMSO - cost_SA
+        cash = materials - pc
+        return cash"""
+
+def CSTR(v_SA, V_CSTR, T=295):#kg/hr, K
+    # Assuming: solvent is always saturated with reactants and V_CSTR Remains Constant
+    # in terms of limiting reagent, salicylic acid
+    """Constants"""
+    V_CSTR, T, v_SA = (float(V_CSTR),float(T), float(v_SA))
+    A, R, Ea = [92245, 8.31, 40000]
+    cp = 0.7025  # kJ/kg-K, specific heat capacity of mixture
+    power_coeff = 0.032  # €/kJ
+
+    def reactor_balance(temp):
+        # Feed streams and relationships between them
+        n_AA, cost_AA, mass_AA = acetic_anhydride(v_SA, temp)
+        n_SA, cost_SA, mass_SA = salycilic_acid(v_SA)
+        n_DMSO, cost_DMSO, mass_DMSO = DMSO(v_SA)
+
+        # Reactor concentrations [mol/L]
+        C_AA = n_AA / 1000
+        C_SA = n_SA / 1000
+
+        # Reaction rate [mol/(L·hr)]
+        r_AS = A * math.exp(-Ea / (R * temp)) * C_AA * C_SA
+
+        # Aspirin production [mol/hr]
+        n_AS = r_AS * V_CSTR
+        revenue, mass_AS = aspirin(n_AS)
+
+        # Power cost
+        mass_flow = mass_AA + mass_DMSO + mass_SA + mass_AS
+        pc = mass_flow * cp * temp * power_coeff
+
+        # Net cash flow
+        materials = revenue - (cost_AA + cost_DMSO + cost_SA)
+        cash = materials - pc
+
+        return n_AS, n_AA, n_DMSO, cash
+
+    # Single-point results at input T
+    n_AS, n_AA, n_DMSO, _ = reactor_balance(T)
+
+    # Sweep over range of temperatures for profit curve
+    Cash = {temp: reactor_balance(temp)[3] for temp in range(295, 500)}
+
     return n_AS, n_AA, n_DMSO, Cash
+
 
 def open_new_window():
     new_win = tk.Toplevel(root)
@@ -163,11 +203,11 @@ def Window():
         axs[1][1].clear()
         axs[1][1].plot(Cash.keys(), Cash.values())
         axs[1][1].axvline(temp)
-        axs[1][1].set_ylim(-1e+4,1e+4)
+        #axs[1][1].set_ylim()
         axs[1][1].set_title(f"Profit (EUR/hr)")
         canvas.draw()
     slider_1 = tk.Scale(root, from_=295, to=500, orient=tk.HORIZONTAL, label="Temperature (K)", command=update_temp) #Reactor Temperature Slider
-    slider_1.set(295)
+    slider_1.set(408)
     slider_1.pack(pady=5)
 
 
