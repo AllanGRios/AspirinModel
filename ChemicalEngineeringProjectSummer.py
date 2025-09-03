@@ -63,7 +63,7 @@ def acetic_anhydride(V_SA, T):
 
 def DMSO(V_SA): # L/hr
     density = 1.1 #kg/L
-    volumetric_flow = (-2.25 * V_SA) + 1000
+    volumetric_flow = (-2.25 * V_SA) + 5000
     mass = volumetric_flow * density #kg/hr
     Molecular_weight = 0.07813 #kg/mol
     cost = 4.67 * mass #€/hr
@@ -77,28 +77,6 @@ def aspirin(Molar_flow):
     revenue = 90.90 * mass
     return revenue, mass
 
-"""def CSTR(v_SA,  V_CSTR, T=295): 
-    A, R, Ea = [92245, 8.31, 40000]
-    # Relationship between volumetric flows such that solvent is always saturated and Volume always constant
-    n_AA, cost_AA, mass_AA = acetic_anhydride(v_SA, T)
-    n_SA, cost_SA, mass_SA = salycilic_acid(v_SA)
-    n_DMSO, cost_DMSO, mass_DMSO = DMSO(v_SA)
-    # Reactor Concentrations
-    C_AA = n_AA / 1000 #mol/L
-    C_SA = n_SA / 1000 #mol/L
-    # Production of Aspirin
-    r_AS = (A * math.exp((-Ea)/(R * T))) * C_AA * C_SA
-    n_AS = r_AS * V_CSTR
-    revenue, mass_AS =  aspirin(n_AS)
-    # Net Cash
-    def cash_flow(Temp):
-        mass_flow = mass_AA + mass_DMSO + mass_SA + mass_AS
-        cp = 0.7025 # specific heat capacity of the mixture
-        pc = mass_flow * cp * Temp * 0.032 # power cost
-        materials = revenue - cost_AA - cost_DMSO - cost_SA
-        cash = materials - pc
-        return cash"""
-
 def CSTR(v_SA, V_CSTR, T=295):#kg/hr, K
     # Assuming: solvent is always saturated with reactants and V_CSTR Remains Constant
     # in terms of limiting reagent, salicylic acid
@@ -106,7 +84,7 @@ def CSTR(v_SA, V_CSTR, T=295):#kg/hr, K
     V_CSTR, T, v_SA = (float(V_CSTR),float(T), float(v_SA))
     A, R, Ea = [92245, 8.31, 40000]
     cp = 0.7025  # kJ/kg-K, specific heat capacity of mixture
-    power_coeff = 0.032  # €/kJ
+    power_coeff = 0.0032  # €/J
 
     def reactor_balance(temp):
         # Feed streams and relationships between them
@@ -115,8 +93,8 @@ def CSTR(v_SA, V_CSTR, T=295):#kg/hr, K
         n_DMSO, cost_DMSO, mass_DMSO = DMSO(v_SA)
 
         # Reactor concentrations [mol/L]
-        C_AA = n_AA / 1000
-        C_SA = n_SA / 1000
+        C_AA = n_AA / V_CSTR
+        C_SA = n_SA / V_CSTR
 
         # Reaction rate [mol/(L·hr)]
         r_AS = A * math.exp(-Ea / (R * temp)) * C_AA * C_SA
@@ -142,7 +120,6 @@ def CSTR(v_SA, V_CSTR, T=295):#kg/hr, K
     Cash = {temp: reactor_balance(temp)[3] for temp in range(295, 500)}
 
     return n_AS, n_AA, n_DMSO, Cash
-
 
 def open_new_window():
     new_win = tk.Toplevel(root)
@@ -183,35 +160,44 @@ def Window():
         distribution, velocities, v_p, f_vp = Maxwell_Boltzman_distribution(m, temp)
         axs[0][0].clear()
         axs[0][0].plot(velocities, distribution)
-        axs[0][0].set_title(f"T = {temp:.0f} K \n Most Probable Velocity = {v_p:.1f} ms⁻¹ \n N% Above Φ = {PY:.1f} %")
+        axs[0][0].annotate(f"T = {temp:.0f} K\nvₚ = {v_p:.1f} m/s\nN% > Φ = {PY:.1f} %", xy=(0.7*max(velocities), max(distribution)*0.8), fontsize=10, bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray"))
+        axs[0][0].set_title("Maxwell-Boltzman Distribution",fontsize=12, weight="bold")
+        axs[0][0].grid(True, alpha=0.3)
+        axs[0][0].set_ylim(0,7e-11)
         canvas.draw()
 
     def update_volume(reactor_volume):
         temp = slider_1.get()
-        AS, n_AA, n_DMSO, Cash = CSTR(reactor_volume, 1000, temp)
+        AS, n_AA, n_DMSO, Cash = CSTR(reactor_volume, 5000, temp)
         Time = np.linspace(0,1000)
         Outlet = []
         for i in Time:
             Outlet.append(AS * i)
         # Aspirin mol vs Time
         axs[0][1].clear()
-        axs[0][1].set_ylim(0,1e+6)
-        axs[0][1].plot(Time, Outlet)
-        axs[0][1].set_title(f"Aspirin (mol/hr) \n {round(AS, 1)} mol/hr")
-        axs[0][1].set_ylabel(f"mol")
+        axs[0][1].plot(Time, Outlet, color="tab:blue", linewidth=2)
+        axs[0][1].set_ylim(0, 1e6)
+        axs[0][1].set_title(f"Aspirin Production [{round(AS)} mol/hr]", fontsize=12, weight="bold")
+        axs[0][1].set_ylabel("Aspirin (mol)", fontsize=10)
+        axs[0][1].grid(True, alpha=0.3)
 
+        # Profit vs temperature
         axs[1][1].clear()
-        axs[1][1].plot(Cash.keys(), Cash.values())
-        axs[1][1].axvline(temp)
-        #axs[1][1].set_ylim()
-        axs[1][1].set_title(f"Profit (EUR/hr)")
+        axs[1][1].plot(list(Cash.keys()), list(Cash.values()), color="tab:green", linewidth=2)
+        axs[1][1].axvline(temp, color="red", linestyle="--", linewidth=1.5, label=f"T = {temp:.0f} K")
+        axs[1][1].set_title("Profit vs Temperature", fontsize=14, weight="bold")
+        axs[1][1].set_xlabel("Temperature (K)", fontsize=12)
+        axs[1][1].set_ylabel("Profit (EUR/hr)", fontsize=12)
+        axs[1][1].legend()
+        axs[1][1].grid(True, alpha=0.3)
         canvas.draw()
+
     slider_1 = tk.Scale(root, from_=295, to=500, orient=tk.HORIZONTAL, label="Temperature (K)", command=update_temp) #Reactor Temperature Slider
-    slider_1.set(408)
+    slider_1.set(298)
     slider_1.pack(pady=5)
 
 
-    slider_2 = tk.Scale(root, from_=1, to= 100, orient=tk.HORIZONTAL, label="Inlet Stream SA (L/hr)", command=update_volume) #Mass Inflow Slider
+    slider_2 = tk.Scale(root, from_=1, to= 500, orient=tk.HORIZONTAL, label="Inlet Stream SA (L/hr)", command=update_volume) #Mass Inflow Slider
     slider_2.set(50)
     slider_2.pack(pady=5)
 
