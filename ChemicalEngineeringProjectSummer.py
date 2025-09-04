@@ -116,35 +116,33 @@ def CSTR(v_SA, V_CSTR, T=295):#kg/hr, K
     # Single-point results at input T
     n_AS, n_AA, n_DMSO, _ = reactor_balance(T)
 
-    # Sweep over range of temperatures for profit curve
+    # Range of temperatures for profit curve
     Cash = {temp: reactor_balance(temp)[3] for temp in range(295, 500)}
 
-    return n_AS, n_AA, n_DMSO, Cash
+    # Residence Time Salicylic Acid
+    RT = V_CSTR / v_SA
 
-def open_new_window():
-    new_win = tk.Toplevel(root)
-    new_win.title("Secondary Graph Window")
-    new_fig, new_ax = plt.subplots()
-    new_canvas = FigureCanvasTkAgg(new_fig, master=new_win)
-    new_canvas.get_tk_widget().pack()
+    # Residence time distribution E(t) = 1/τ * exp(-t/τ), t = [0 -> 100 hrs]
+    E_t = {}
+    for t in range(0, 100):
+        x = (1 / RT) * math.exp(-t / RT)
+        E_t[t] = x
 
-    # Plot example graph
-    v = np.linspace(1, 5000, 500)
-    new_ax.plot(v, np.sin(v / 500))
-    new_ax.set_title("Sine Wave Example")
-    new_canvas.draw()
+    return n_AS, n_AA, n_DMSO, Cash, E_t
 
 def Window():
 
     # main window
     root = tk.Tk()
     root.title("System Visual")
-    root.geometry("1500x1000")
+    root.geometry("1600x1000")
     frame = tk.Frame(root)
     frame.pack()
 
     # 4 sub plots
-    fig, axs = plt.subplots(2, 2, figsize=(10, 7))
+    fig, axs = plt.subplots(2, 2, figsize=(15, 8))
+    fig.subplots_adjust(wspace=0.55, hspace=0.55)
+
     canvas = FigureCanvasTkAgg(fig, master=frame)
     canvas.get_tk_widget().pack()
 
@@ -161,14 +159,16 @@ def Window():
         axs[0][0].clear()
         axs[0][0].plot(velocities, distribution)
         axs[0][0].annotate(f"T = {temp:.0f} K\nvₚ = {v_p:.1f} m/s\nN% > Φ = {PY:.1f} %", xy=(0.7*max(velocities), max(distribution)*0.8), fontsize=10, bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray"))
-        axs[0][0].set_title("Maxwell-Boltzman Distribution",fontsize=12, weight="bold")
+        axs[0][0].set_title("Maxwell-Boltzman Distribution",fontsize=14, weight="bold")
+        axs[0][0].set_ylabel("Probability", fontsize=12)
+        axs[0][0].set_xlabel("Velocity (m/s)", fontsize=12)
         axs[0][0].grid(True, alpha=0.3)
         axs[0][0].set_ylim(0,7e-11)
         canvas.draw()
 
     def update_volume(reactor_volume):
         temp = slider_1.get()
-        AS, n_AA, n_DMSO, Cash = CSTR(reactor_volume, 5000, temp)
+        AS, n_AA, n_DMSO, Cash, RTD = CSTR(reactor_volume, 5000, temp)
         Time = np.linspace(0,1000)
         Outlet = []
         for i in Time:
@@ -177,8 +177,9 @@ def Window():
         axs[0][1].clear()
         axs[0][1].plot(Time, Outlet, color="tab:blue", linewidth=2)
         axs[0][1].set_ylim(0, 1e6)
-        axs[0][1].set_title(f"Aspirin Production [{round(AS)} mol/hr]", fontsize=12, weight="bold")
-        axs[0][1].set_ylabel("Aspirin (mol)", fontsize=10)
+        axs[0][1].set_title(f"Aspirin Production [{round(AS)} mol/hr]", fontsize=14, weight="bold")
+        axs[0][1].set_ylabel("Aspirin (mol)", fontsize=12)
+        axs[0][1].set_xlabel("Time (hr)", fontsize=12)
         axs[0][1].grid(True, alpha=0.3)
 
         # Profit vs temperature
@@ -190,6 +191,13 @@ def Window():
         axs[1][1].set_ylabel("Profit (EUR/hr)", fontsize=12)
         axs[1][1].legend()
         axs[1][1].grid(True, alpha=0.3)
+
+        axs[1][0].clear()
+        axs[1][0].plot(list(RTD.keys()), list(RTD.values()), color="tab:blue", linewidth=2)
+        axs[1][0].set_title("Residence Time Distribution", fontsize=14, weight="bold")
+        axs[1][0].set_ylabel("Probability Density (1/hr)", fontsize=12)
+        axs[1][0].set_xlabel("Time (hr)", fontsize=12)
+        axs[1][0].grid(True, alpha=0.3)
         canvas.draw()
 
     slider_1 = tk.Scale(root, from_=295, to=500, orient=tk.HORIZONTAL, label="Temperature (K)", command=update_temp) #Reactor Temperature Slider
@@ -201,8 +209,6 @@ def Window():
     slider_2.set(50)
     slider_2.pack(pady=5)
 
-    btn = tk.Button(root, text="Open New Window", command=open_new_window)
-    btn.pack(pady=5)
     root.mainloop()
 
 Window()
