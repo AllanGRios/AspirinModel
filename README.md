@@ -10,8 +10,6 @@
 
 ## Scope
 > The model must be able to visualize data of physical quantities on graphs including Maxwell-Boltzman Distribution, Operating Cost, Molar Flow of Aspirin at the outlet and the Time extinction coefficient
-> The model should be able to take raw HNMR or FTIR data and convert it into a standard spectrum able to be interpreted by analysts.
-> The model could include additional visualization in the form of an animation via the Pygame module.
 > The model won't consider non-steady state, non-idealized reactors or recycle streams, additionally the model is only focused on material flows through the CSTR stage of the industrial production so won't consider any flows outside the CSTR stage.
 
 ## Limitations
@@ -20,6 +18,7 @@
 > > - Considering only idealized conditions makes the model inaccurate to the majority of real world scenarios.
 > > - Heat transfers and Mass transfers are not considered.
 > > - Maxwell-Boltzman distribution is only considered in one plane of motion.
+> > - Real world prices are not reflected and only an apporximation is used
 
 ### About the Creator
 > This project was a self assigned endevour aimed at developing understanding and skills in python, Data Visualization, Physical Chemistry, Organic Chemistry, Engineering Concepts, Project Management, Research Skills, Problem Solving aswell as Documentation and Reporting.
